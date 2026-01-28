@@ -21,17 +21,7 @@ def _parse_bool_env(name: str, default: bool = False) -> bool:
 
 
 def _should_use_managed_identity() -> bool:
-    # Common signals for managed identity / workload identity environments.
-    return any(
-        os.getenv(var)
-        for var in (
-            "MSI_ENDPOINT",
-            "IDENTITY_ENDPOINT",
-            "AZURE_CLIENT_ID",
-            "AZURE_TENANT_ID",
-            "AZURE_FEDERATED_TOKEN_FILE",
-        )
-    )
+    return bool(os.getenv("MSI_ENDPOINT"))
 
 
 def _get_approval() -> bool:
@@ -102,10 +92,12 @@ async def main() -> None:
 
     # Initialize observability for visualization in local.
     # Set enable_sensitive_data to True to include sensitive information such as prompts and responses.
-    if not _should_use_managed_identity():
-        configure_otel_providers(vs_code_extension_port=4319, enable_sensitive_data=False)
+    if not os.getenv("MSI_ENDPOINT"):
+        configure_otel_providers(
+            vs_code_extension_port=4319, enable_sensitive_data=False
+        )
 
-    credential = DefaultAzureCredential() if _should_use_managed_identity() else AzureCliCredential()
+    credential = DefaultAzureCredential() if os.getenv("MSI_ENDPOINT") else AzureCliCredential()
 
     try:
         async with (
