@@ -103,6 +103,19 @@ export MCP_AUTO_APPROVE=true
 
 ## Deployment
 
+### Register Required Azure Resource Provider
+
+Hosted Agent deployment typically creates/uses an Azure Container Registry (ACR). If your subscription hasn’t registered the ACR resource provider, deployment can fail until you register it.
+
+**Option A — Azure Portal (easiest)**
+
+1. Go to Azure Portal → **Subscriptions**
+2. Select your subscription
+3. Go to **Resource providers** (left menu)
+4. Search for: `Microsoft.ContainerRegistry`
+5. Select it → click **Register**
+6. Wait 1–2 minutes until the status becomes **Registered**
+
 To deploy the hosted agent:
 
 1. Open the Visual Studio Code Command Palette and run the `Microsoft Foundry: Deploy Hosted Agent` command.
