@@ -1,18 +1,16 @@
-# Writer-Reviewer Hosted Agent Sample
+# Hosted Agent (Container) Sample
 
-This sample demonstrates the construction of a hosted agent workflow using the Agent Framework. It features two agents—a "Writer" and a "Reviewer"—integrated in a streamlined, one-way workflow to illustrate best practices for agent orchestration and interaction.
+This repo is a minimal, container-friendly Agent Framework sample that creates an Azure AI Foundry agent and equips it with a hosted MCP tool (Microsoft Learn MCP). It is designed to run locally and to be deployed as a hosted agent.
 
 ## Project Structure
 
 | File               | Description                                                         |
 | ------------------ | ------------------------------------------------------------------- |
-| `workflow_core.py` | Builds the workflow, creates agents, and manages credentials.       |
-| `interactive.py`   | Runs the workflow in local/interactive mode.                        |
-| `container.py`     | Starts the workflow in container/server mode.                       |
+| `container.py`     | Entry point that creates the agent and runs sample queries.         |
 | `requirements.txt` | Lists the Python dependencies for the project.                      |
 | `Dockerfile`       | Defines the container image for deployment.                         |
 | `.dockerignore`    | Specifies files to ignore during container build.                   |
-| `.env`             | Stores environment configuration for Microsoft Foundry integration. |
+| `.env.example`     | Example environment configuration (copy to `.env`).                 |
 
 ## Prerequisites
 
@@ -56,7 +54,13 @@ This sample demonstrates the construction of a hosted agent workflow using the A
    AZURE_AI_MODEL_DEPLOYMENT_NAME="your-model-deployment-name"
    ```
 
-   **Important**: Never commit the `.env` file to version control. Add it to your `.gitignore` file.
+   Tip: you can start by copying the example file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   **Important**: Never commit the `.env` file to version control. This repo includes a `.gitignore` rule for it.
 
 ## Local Testing
 
@@ -68,13 +72,15 @@ This sample authenticates using [DefaultAzureCredential](https://aka.ms/azsdk/py
 
 Confirm authentication locally (for example, az account show or az account get-access-token) before running the sample.
 
-### Interactive Mode
+### Run Locally
 
-Run the hosted agent directly for development and testing:
+Run the sample:
 
 ```bash
-python interactive.py
+python container.py
 ```
+
+This script runs a small list of example queries against the agent and prints the responses.
 
 ### Container Mode
 
@@ -86,6 +92,14 @@ To run the agent in container mode:
 4. Review the agent's response in the playground interface.
 
 > **Note**: Open the local playground before starting the container agent to ensure the visualization functions correctly.
+
+### Tool Call Approvals
+
+Hosted MCP tool calls may request approval. For non-interactive runs (for example in CI or when stdin is not a TTY), set:
+
+```bash
+export MCP_AUTO_APPROVE=true
+```
 
 ## Deployment
 
