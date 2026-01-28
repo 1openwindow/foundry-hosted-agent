@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# Test / tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets / env files
+.env
+.env.*
+!.env.example
+
+# Microsoft Foundry / local deployment state (usually machine-specific)
+.foundry/
