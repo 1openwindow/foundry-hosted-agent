@@ -20,10 +20,6 @@ def _parse_bool_env(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
-def _should_use_managed_identity() -> bool:
-    return bool(os.getenv("MSI_ENDPOINT"))
-
-
 def _get_approval() -> bool:
     if _parse_bool_env("MCP_AUTO_APPROVE", default=False):
         return True
@@ -99,46 +95,34 @@ async def main() -> None:
 
     credential = DefaultAzureCredential() if os.getenv("MSI_ENDPOINT") else AzureCliCredential()
 
-    try:
-        async with (
-            credential,
-            AzureAIAgentClient(
-                credential=credential,
-                project_endpoint=project_endpoint,
-                model_deployment_name=model_deployment_name,
-            ) as client,
-        ):
-            agent = client.create_agent(
-                name="DocsAgent",
-                instructions="You are a helpful assistant that can help with Microsoft documentation questions.",
-                tools=HostedMCPTool(
-                    name="Microsoft Learn MCP",
-                    url="https://learn.microsoft.com/api/mcp",
-                ),
-            )
-            thread = agent.get_new_thread()
+    async with (
+        credential,
+        AzureAIAgentClient(
+            credential=credential,
+            project_endpoint=project_endpoint,
+            model_deployment_name=model_deployment_name,
+        ) as client,
+    ):
+        agent = client.create_agent(
+            name="DocsAgent",
+            instructions="You are a helpful assistant that can help with Microsoft documentation questions.",
+            tools=HostedMCPTool(
+                name="Microsoft Learn MCP",
+                url="https://learn.microsoft.com/api/mcp",
+            ),
+        )
+        thread = agent.get_new_thread()
 
-            queries = [
-                "How to create an Azure storage account using az cli?",
-                "What is Microsoft Agent Framework?",
-            ]
+        queries = [
+            "How to create an Azure storage account using az cli?",
+        ]
 
-            for idx, query in enumerate(queries, start=1):
-                print(f"User ({idx}): {query}")
-                result = await handle_approvals_with_thread(query, agent, thread)
-                print(f"{agent.name}: {result}\n")
-                if idx != len(queries):
-                    print("\n=======================================\n")
-    except ResourceNotFoundError as exc:
-        raise SystemExit(
-            "Azure returned 'Workspace not found'. This is almost always one of:\n"
-            "- `AZURE_AI_PROJECT_ENDPOINT` does not match an existing Foundry Project endpoint\n"
-            "- you're logged into the wrong tenant/subscription (`az account show`)\n"
-            "- your identity lacks permissions on the project (needs at least 'Azure AI User')\n\n"
-            f"Endpoint used: {project_endpoint}\n\n"
-            "Fix: open your project in Azure AI Foundry, copy the Project endpoint from the project settings, "
-            "update `.env`, then re-run.\n"
-        ) from exc
+        for idx, query in enumerate(queries, start=1):
+            print(f"User ({idx}): {query}")
+            result = await handle_approvals_with_thread(query, agent, thread)
+            print(f"{agent.name}: {result}\n")
+            if idx != len(queries):
+                print("\n=======================================\n")
 
 
 if __name__ == "__main__":
