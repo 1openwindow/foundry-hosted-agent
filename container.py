@@ -38,8 +38,8 @@ async def main() -> None:
         except Exception:
             pass
 
-    logger.debug("AZURE_AI_PROJECT_ENDPOINT=%s", (settings.project_endpoint or "").split("?")[0])
-    logger.debug("AZURE_AI_MODEL_DEPLOYMENT_NAME=%s", settings.model_deployment_name)
+    logger.info("AZURE_AI_PROJECT_ENDPOINT=%s", (settings.project_endpoint or "").split("?")[0])
+    logger.info("AZURE_AI_MODEL_DEPLOYMENT_NAME=%s", settings.model_deployment_name)
 
     credential = select_credential(has_msi=has_msi, use_azure_cli_credential=settings.use_azure_cli_credential)
 
@@ -66,7 +66,7 @@ async def main() -> None:
         # Always run as hosted agent server for Docker/Foundry.
         if not has_msi and not settings.enable_server_tracing:
             disable_agentserver_tracing()
-        logger.debug("Server mode enabled")
+        logger.info("Server mode enabled")
         await from_agent_framework(agent, credentials=credential).run_async()
 
 

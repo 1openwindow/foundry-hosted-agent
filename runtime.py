@@ -86,22 +86,17 @@ def select_credential(*, has_msi: bool, use_azure_cli_credential: bool):
 
 
 def build_workiq_tools(*, has_msi: bool, config: WorkIQConfig):
-    allow_workiq_hosted = config.allow_hosted
-
-    logger.info("WorkIQ: enabled=true (always) allow_hosted=%s", allow_workiq_hosted)
-
-    if has_msi and not allow_workiq_hosted:
+    if has_msi:
         logger.warning(
-            "Work IQ is enabled but this runtime appears to be hosted (MSI_ENDPOINT is set). "
-            "Work IQ uses delegated user auth and typically requires interactive browser/device sign-in, which is "
-            "not available in headless hosted agent containers. Disabling Work IQ to avoid confusing permission errors. "
-            "To force-enable anyway, set WORKIQ_ALLOW_HOSTED=true (best-effort)."
+            "WorkIQ: enabled in hosted runtime (MSI_ENDPOINT detected). "
+            "Note: Work IQ uses delegated user auth and may fail in headless environments if interactive sign-in cannot complete."
         )
-        return None
+    else:
+        logger.info("WorkIQ: enabled (local runtime)")
 
     workiq_cmd = "npx"
     workiq_path = shutil.which(workiq_cmd)
-    logger.debug("WorkIQ command=%s path=%s", workiq_cmd, workiq_path or "<not found>")
+    logger.info("WorkIQ command=%s path=%s", workiq_cmd, workiq_path or "<not found>")
 
     if workiq_path is None:
         logger.warning(
@@ -117,7 +112,7 @@ def build_workiq_tools(*, has_msi: bool, config: WorkIQConfig):
         workiq_args += ["-t", tenant_id]
     workiq_args += ["mcp"]
 
-    logger.debug("WorkIQ args=%s", workiq_args)
+    logger.info("WorkIQ args=%s", workiq_args)
 
     capture_stderr = config.capture_stderr
     echo_stderr = config.echo_stderr

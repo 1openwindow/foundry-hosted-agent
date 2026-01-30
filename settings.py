@@ -73,7 +73,6 @@ class Settings:
 
     # Work IQ
     workiq_tenant_id: str | None
-    workiq_allow_hosted: bool
     workiq_capture_stderr: bool
     workiq_echo_stderr: bool
     workiq_stderr_log_path: str
@@ -81,7 +80,6 @@ class Settings:
     def workiq_config(self) -> "WorkIQConfig":
         return WorkIQConfig(
             tenant_id=self.workiq_tenant_id,
-            allow_hosted=self.workiq_allow_hosted,
             capture_stderr=self.workiq_capture_stderr,
             echo_stderr=self.workiq_echo_stderr,
             stderr_log_path=self.workiq_stderr_log_path,
@@ -91,7 +89,6 @@ class Settings:
 @dataclass(frozen=True)
 class WorkIQConfig:
     tenant_id: str | None
-    allow_hosted: bool
     capture_stderr: bool
     echo_stderr: bool
     stderr_log_path: str
@@ -115,7 +112,6 @@ def load_settings() -> Settings:
         af_debug=get_bool("AF_DEBUG", False),
         use_azure_cli_credential=get_bool("USE_AZURE_CLI_CREDENTIAL", False),
         workiq_tenant_id=get_optional_str("WORKIQ_TENANT_ID"),
-        workiq_allow_hosted=get_bool("WORKIQ_ALLOW_HOSTED", False),
         workiq_capture_stderr=get_bool("WORKIQ_CAPTURE_STDERR", True),
         workiq_echo_stderr=get_bool("WORKIQ_ECHO_STDERR", True),
         workiq_stderr_log_path=get_str("WORKIQ_STDERR_LOG_PATH", "/tmp/workiq-mcp.stderr.log"),

@@ -107,9 +107,8 @@ Important notes:
 
 Hosted-agent note:
 
-- When running as a **hosted agent** (Managed Identity / `MSI_ENDPOINT` is set), this sample **disables Work IQ by default**.
+- When running as a **hosted agent** (Managed Identity / `MSI_ENDPOINT` is set), this sample still enables Work IQ, but it may fail.
    - Reason: Work IQ typically needs interactive sign-in to obtain a delegated user token, but hosted agent containers are usually headless.
-   - You can force-enable best-effort behavior by setting `WORKIQ_ALLOW_HOSTED=true`, but expect auth/permission failures if sign-in cannot complete.
 
 This sample uses `npx -y @microsoft/workiq mcp`.
 
