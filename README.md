@@ -110,22 +110,16 @@ Important notes:
 
 Hosted-agent note:
 
-- When running as a **hosted agent** (Managed Identity / `MSI_ENDPOINT` is set), this sample **disables Work IQ by default** even if `ENABLE_WORKIQ=true`.
+- When running as a **hosted agent** (Managed Identity / `MSI_ENDPOINT` is set), this sample **disables Work IQ by default**.
    - Reason: Work IQ typically needs interactive sign-in to obtain a delegated user token, but hosted agent containers are usually headless.
    - You can force-enable best-effort behavior by setting `WORKIQ_ALLOW_HOSTED=true`, but expect auth/permission failures if sign-in cannot complete.
 
-Enable Work IQ in this agent:
+This sample uses `npx -y @microsoft/workiq mcp`.
+
+Optional: specify tenant (defaults to "common"):
 
 ```bash
-export ENABLE_WORKIQ=true
-# Optional: specify tenant (defaults to "common")
 export WORKIQ_TENANT_ID="<your-tenant-id>"
-```
-
-Optional override if you don’t want to use `npx`:
-
-```bash
-export WORKIQ_COMMAND="workiq"
 ```
 
 Local-first setup tips:
@@ -141,7 +135,6 @@ Quick local validation (one-shot prompt mode):
 
 ```bash
 RUN_MODE=prompt \
-ENABLE_WORKIQ=true \
 PROMPT="List latest 3 documents on my OneDrive" \
 python container.py
 ```
@@ -211,7 +204,7 @@ docker run --rm -it \
 Work IQ note for Docker:
 
 - Work IQ may still fail in Docker if it requires launching a browser for sign-in. If the CLI prints a URL/code, open it on your host machine to complete sign-in.
-- If you only want to validate the container without Work IQ, set `ENABLE_WORKIQ=false`.
+- If Work IQ blocks your Docker validation (for example, due to auth prompts), comment out Work IQ in code or temporarily remove it from `build_workiq_tools()`.
 
 ### Tool Call Approvals
 

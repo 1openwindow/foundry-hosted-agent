@@ -78,13 +78,9 @@ def select_credential(has_msi: bool):
 
 
 def build_workiq_tools(*, logger: logging.Logger, has_msi: bool):
-    enable_workiq = env_truthy("ENABLE_WORKIQ")
     allow_workiq_hosted = env_truthy("WORKIQ_ALLOW_HOSTED")
 
-    logger.info("WorkIQ: enabled=%s allow_hosted=%s", enable_workiq, allow_workiq_hosted)
-
-    if not enable_workiq:
-        return None
+    logger.info("WorkIQ: enabled=true (always) allow_hosted=%s", allow_workiq_hosted)
 
     if has_msi and not allow_workiq_hosted:
         logger.warning(
@@ -95,15 +91,14 @@ def build_workiq_tools(*, logger: logging.Logger, has_msi: bool):
         )
         return None
 
-    workiq_cmd = os.getenv("WORKIQ_COMMAND", "npx").strip() or "npx"
+    workiq_cmd = "npx"
     workiq_path = shutil.which(workiq_cmd)
     logger.debug("WorkIQ command=%s path=%s", workiq_cmd, workiq_path or "<not found>")
 
     if workiq_path is None:
         logger.warning(
-            "Work IQ is enabled (ENABLE_WORKIQ=true) but '%s' was not found on PATH. "
-            "Install Node.js (for npx) or install Work IQ globally and set WORKIQ_COMMAND=workiq. "
-            "Disabling Work IQ for this run.",
+            "Work IQ is enabled but '%s' was not found on PATH. "
+            "Install Node.js (so npx is available). Disabling Work IQ for this run.",
             workiq_cmd,
         )
         return None
@@ -115,8 +110,6 @@ def build_workiq_tools(*, logger: logging.Logger, has_msi: bool):
     workiq_args += ["mcp"]
 
     logger.debug("WorkIQ args=%s", workiq_args)
-
-    approval_mode = os.getenv("WORKIQ_APPROVAL_MODE", "").strip() or None
 
     capture_stderr_env = os.getenv("WORKIQ_CAPTURE_STDERR")
     capture_stderr = True if capture_stderr_env is None else env_truthy("WORKIQ_CAPTURE_STDERR")
@@ -143,7 +136,7 @@ def build_workiq_tools(*, logger: logging.Logger, has_msi: bool):
             command=workiq_cmd,
             args=workiq_args,
             description="Microsoft Work IQ MCP server (Microsoft 365 Copilot data)",
-            approval_mode=approval_mode,
+            load_prompts=False,
             **tool_kwargs,
         )
     ]
