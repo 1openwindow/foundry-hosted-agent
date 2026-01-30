@@ -9,8 +9,27 @@ from agent_framework import MCPStdioTool
 from azure.identity.aio import AzureCliCredential, DefaultAzureCredential, ManagedIdentityCredential
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
+from settings import Settings
 
-TRUTHY = {"1", "true", "yes", "on"}
+
+def disable_agentserver_tracing(logger: logging.Logger) -> None:
+    """Disable agentserver tracing init.
+
+    The agentserver Agent Framework adapter may schedule an async tracing setup task that
+    can fail noisily in local dev environments. This disables that init path.
+    """
+
+    try:
+        from opentelemetry import trace
+        from azure.ai.agentserver.agentframework.agent_framework import AgentFrameworkCBAgent
+
+        def _noop_init_tracing(self):
+            self.tracer = trace.get_tracer(__name__)
+
+        AgentFrameworkCBAgent.init_tracing = _noop_init_tracing  # type: ignore[method-assign]
+        logger.info("Tracing disabled (ENABLE_SERVER_TRACING not set).")
+    except Exception as exc:
+        logger.warning("Failed to disable tracing: %s", exc)
 
 
 class TruthyAsyncCredential:
@@ -49,15 +68,11 @@ def credential_name(credential: Any) -> str:
     return (inner or credential).__class__.__name__
 
 
-def env_truthy(name: str) -> bool:
-    return os.getenv(name, "").strip().lower() in TRUTHY
-
-
-def configure_logging() -> logging.Logger:
-    level_name = os.getenv("LOG_LEVEL", "").strip().upper()
+def configure_logging(settings: Settings) -> logging.Logger:
+    level_name = (settings.log_level or "").strip().upper()
     level = getattr(logging, level_name, None)
     if level is None:
-        level = logging.DEBUG if (env_truthy("DEBUG") or env_truthy("AF_DEBUG")) else logging.INFO
+        level = logging.DEBUG if (settings.debug or settings.af_debug) else logging.INFO
 
     logging.basicConfig(level=level, format="[%(levelname)s] %(message)s")
     return logging.getLogger("foundry-hosted-agent")
@@ -67,24 +82,24 @@ def has_msi_endpoint() -> bool:
     return bool(os.getenv("MSI_ENDPOINT"))
 
 
-def select_credential(has_msi: bool):
+def select_credential(has_msi: bool, settings: Settings):
     if has_msi:
         return TruthyAsyncCredential(ManagedIdentityCredential())
 
-    if env_truthy("USE_AZURE_CLI_CREDENTIAL"):
+    if settings.use_azure_cli_credential:
         return TruthyAsyncCredential(AzureCliCredential())
 
     return TruthyAsyncCredential(DefaultAzureCredential())
 
 
-def build_workiq_tools(*, logger: logging.Logger, has_msi: bool):
-    allow_workiq_hosted = env_truthy("WORKIQ_ALLOW_HOSTED")
+def build_workiq_tools(*, logger: logging.Logger, has_msi: bool, settings: Settings):
+    allow_workiq_hosted = settings.workiq_allow_hosted
 
     logger.info("WorkIQ: enabled=true (always) allow_hosted=%s", allow_workiq_hosted)
 
     if has_msi and not allow_workiq_hosted:
         logger.warning(
-            "Work IQ is enabled (ENABLE_WORKIQ=true) but this runtime appears to be hosted (MSI_ENDPOINT is set). "
+            "Work IQ is enabled but this runtime appears to be hosted (MSI_ENDPOINT is set). "
             "Work IQ uses delegated user auth and typically requires interactive browser/device sign-in, which is "
             "not available in headless hosted agent containers. Disabling Work IQ to avoid confusing permission errors. "
             "To force-enable anyway, set WORKIQ_ALLOW_HOSTED=true (best-effort)."
@@ -103,7 +118,7 @@ def build_workiq_tools(*, logger: logging.Logger, has_msi: bool):
         )
         return None
 
-    tenant_id = os.getenv("WORKIQ_TENANT_ID", "").strip()
+    tenant_id = (settings.workiq_tenant_id or "").strip()
     workiq_args = ["-y", "@microsoft/workiq"]
     if tenant_id:
         workiq_args += ["-t", tenant_id]
@@ -111,11 +126,9 @@ def build_workiq_tools(*, logger: logging.Logger, has_msi: bool):
 
     logger.debug("WorkIQ args=%s", workiq_args)
 
-    capture_stderr_env = os.getenv("WORKIQ_CAPTURE_STDERR")
-    capture_stderr = True if capture_stderr_env is None else env_truthy("WORKIQ_CAPTURE_STDERR")
-    echo_stderr_env = os.getenv("WORKIQ_ECHO_STDERR")
-    echo_stderr = True if echo_stderr_env is None else env_truthy("WORKIQ_ECHO_STDERR")
-    stderr_log_path = os.getenv("WORKIQ_STDERR_LOG_PATH", "/tmp/workiq-mcp.stderr.log").strip() or "/tmp/workiq-mcp.stderr.log"
+    capture_stderr = settings.workiq_capture_stderr
+    echo_stderr = settings.workiq_echo_stderr
+    stderr_log_path = settings.workiq_stderr_log_path
 
     tool_cls: type[MCPStdioTool]
     tool_kwargs: dict[str, Any] = {}

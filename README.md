@@ -6,7 +6,7 @@ This repo is a minimal, container-friendly Agent Framework sample that creates a
 
 | File               | Description                                                         |
 | ------------------ | ------------------------------------------------------------------- |
-| `container.py`     | Entry point that creates the agent and starts the hosted-agent server (default), or runs a single prompt (optional). |
+| `container.py`     | Entry point that creates the agent and starts the hosted-agent server. |
 | `requirements.txt` | Lists the Python dependencies for the project.                      |
 | `Dockerfile`       | Defines the container image for deployment.                         |
 | `.dockerignore`    | Specifies files to ignore during container build.                   |
@@ -52,6 +52,9 @@ This repo is a minimal, container-friendly Agent Framework sample that creates a
 
    # Your model deployment name in Microsoft Foundry
    AZURE_AI_MODEL_DEPLOYMENT_NAME="your-model-deployment-name"
+
+   # Required: agent name
+   AGENT_NAME="your-agent-name"
    ```
 
    Tip: you can start by copying the example file:
@@ -82,13 +85,7 @@ python container.py
 
 Debugging tip: set `DEBUG=true` to print runtime diagnostics (credential choice, Work IQ enablement, etc.).
 
-By default this starts the hosted-agent server (the same mode used in Docker/Foundry).
-
-If you want a simple one-shot run (similar to a “hello world” sample), run:
-
-```bash
-RUN_MODE=prompt PROMPT="Tell me a joke about a pirate." python container.py
-```
+This starts the hosted-agent server (the same mode used in Docker/Foundry).
 
 Credential note:
 
@@ -133,11 +130,7 @@ npx -y @microsoft/workiq accept-eula
 
 Quick local validation (one-shot prompt mode):
 
-```bash
-RUN_MODE=prompt \
-PROMPT="List latest 3 documents on my OneDrive" \
-python container.py
-```
+Use the local playground to send a prompt such as: "List latest 3 documents on my OneDrive".
 
 #### How to “solve” the OneDrive permission issue in hosted mode
 
