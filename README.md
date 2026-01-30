@@ -80,6 +80,8 @@ Run the sample:
 python container.py
 ```
 
+Debugging tip: set `DEBUG=true` to print runtime diagnostics (credential choice, Work IQ enablement, etc.).
+
 By default this starts the hosted-agent server (the same mode used in Docker/Foundry).
 
 If you want a simple one-shot run (similar to a “hello world” sample), run:
@@ -185,6 +187,7 @@ docker build -t foundry-hosted-agent:dev .
 ```bash
 docker run --rm -it \
    --env-file .env \
+   -e DEBUG=true \
    -e RUN_MODE=prompt \
    -e PROMPT="Tell me a joke about a pirate." \
    -e AZURE_TENANT_ID="<tenant-id>" \

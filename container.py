@@ -1,22 +1,24 @@
 import asyncio
 import os
-import shutil
 
-from agent_framework import MCPStdioTool
 from agent_framework.azure import AzureAIAgentClient
 from agent_framework.observability import configure_otel_providers
 from azure.ai.agentserver.agentframework import from_agent_framework
-from azure.identity.aio import AzureCliCredential, DefaultAzureCredential, ManagedIdentityCredential
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+from runtime import build_workiq_tools, configure_logging, detect_hosted, select_credential
 
+load_dotenv(override=True)
 async def main() -> None:
+    logger = configure_logging()
+
     # Docker/Foundry: bind to provided PORT (agent host uses ASP.NET Core under the hood)
     port = os.getenv("PORT", "8088").strip() or "8088"
     os.environ.setdefault("ASPNETCORE_URLS", f"http://+:{port}")
 
-    is_hosted = bool(os.getenv("MSI_ENDPOINT"))
+    is_hosted = detect_hosted()
+    run_mode = os.getenv("RUN_MODE", "server").strip().lower()
+    logger.debug("Runtime: RUN_MODE=%s is_hosted=%s", run_mode, is_hosted)
 
     # Local-only observability (optional)
     if not is_hosted:
@@ -32,14 +34,12 @@ async def main() -> None:
             "Missing required env vars: AZURE_AI_PROJECT_ENDPOINT and AZURE_AI_MODEL_DEPLOYMENT_NAME"
         )
 
-    # Credential: managed identity in Foundry/Azure; Azure CLI credential if requested; otherwise default chain.
-    credential = (
-        ManagedIdentityCredential()
-        if is_hosted
-        else AzureCliCredential()
-        if os.getenv("USE_AZURE_CLI_CREDENTIAL", "").strip().lower() in {"1", "true", "yes"}
-        else DefaultAzureCredential()
-    )
+    logger.debug("AZURE_AI_PROJECT_ENDPOINT=%s", (project_endpoint or "").split("?")[0])
+    logger.debug("AZURE_AI_MODEL_DEPLOYMENT_NAME=%s", model_deployment_name)
+
+    credential = select_credential(is_hosted)
+
+    logger.debug("Credential: %s", credential.__class__.__name__)
 
     async with (
         credential,
@@ -49,46 +49,7 @@ async def main() -> None:
             model_deployment_name=model_deployment_name,
         ) as client,
     ):
-        tools = None
-        enable_workiq = os.getenv("ENABLE_WORKIQ", "").strip().lower() in {"1", "true", "yes"}
-        allow_workiq_hosted = os.getenv("WORKIQ_ALLOW_HOSTED", "").strip().lower() in {"1", "true", "yes"}
-        if enable_workiq and is_hosted and not allow_workiq_hosted:
-            print(
-                "Work IQ is enabled (ENABLE_WORKIQ=true) but this runtime appears to be hosted (MSI_ENDPOINT is set).\n"
-                "Work IQ uses delegated user auth and typically requires interactive browser/device sign-in, which is\n"
-                "not available in headless hosted agent containers. Disabling Work IQ to avoid confusing permission errors.\n"
-                "To force-enable anyway, set WORKIQ_ALLOW_HOSTED=true (best-effort).",
-                flush=True,
-            )
-            enable_workiq = False
-
-        if enable_workiq:
-            workiq_cmd = os.getenv("WORKIQ_COMMAND", "npx").strip() or "npx"
-            tenant_id = os.getenv("WORKIQ_TENANT_ID", "").strip()
-
-            if shutil.which(workiq_cmd) is None:
-                print(
-                    f"Work IQ is enabled (ENABLE_WORKIQ=true) but '{workiq_cmd}' was not found on PATH.\n"
-                    "Install Node.js (for npx) or install Work IQ globally and set WORKIQ_COMMAND=workiq.\n"
-                    "Disabling Work IQ for this run.",
-                    flush=True,
-                )
-                enable_workiq = False
-
-        if enable_workiq:
-            workiq_args = ["-y", "@microsoft/workiq"]
-            if tenant_id:
-                workiq_args += ["-t", tenant_id]
-            workiq_args += ["mcp"]
-
-            tools = [
-                MCPStdioTool(
-                    name="workiq",
-                    command=workiq_cmd,
-                    args=workiq_args,
-                    description="Microsoft Work IQ MCP server (Microsoft 365 Copilot data)",
-                )
-            ]
+        tools = build_workiq_tools(logger=logger, is_hosted=is_hosted)
 
         agent = client.create_agent(
             name=os.getenv("AGENT_NAME", "HostedAgent"),
@@ -96,13 +57,16 @@ async def main() -> None:
             tools=tools,
         )
 
-        print(f"Agent name: {getattr(agent, 'name', '<unknown>')}")
+        logger.info("Agent name: %s", getattr(agent, "name", "<unknown>"))
 
         # Default: run as hosted agent server for Docker/Foundry.
-        if os.getenv("RUN_MODE", "server").strip().lower() == "prompt":
-            result = await agent.run(os.getenv("PROMPT", "Tell me a joke about a pirate."))
+        if run_mode == "prompt":
+            prompt = os.getenv("PROMPT", "Tell me a joke about a pirate.")
+            logger.debug("Prompt mode enabled")
+            result = await agent.run(prompt)
             print(getattr(result, "text", result))
         else:
+            logger.debug("Server mode enabled")
             await from_agent_framework(agent, credentials=credential).run_async()
 
 
