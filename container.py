@@ -1,5 +1,6 @@
 import asyncio
 import os
+import shutil
 
 from agent_framework import MCPStdioTool
 from agent_framework.azure import AzureAIAgentClient
@@ -15,8 +16,10 @@ async def main() -> None:
     port = os.getenv("PORT", "8088").strip() or "8088"
     os.environ.setdefault("ASPNETCORE_URLS", f"http://+:{port}")
 
+    is_hosted = bool(os.getenv("MSI_ENDPOINT"))
+
     # Local-only observability (optional)
-    if not os.getenv("MSI_ENDPOINT"):
+    if not is_hosted:
         try:
             configure_otel_providers(vs_code_extension_port=4319, enable_sensitive_data=False)
         except Exception:
@@ -32,7 +35,7 @@ async def main() -> None:
     # Credential: managed identity in Foundry/Azure; Azure CLI credential if requested; otherwise default chain.
     credential = (
         ManagedIdentityCredential()
-        if os.getenv("MSI_ENDPOINT")
+        if is_hosted
         else AzureCliCredential()
         if os.getenv("USE_AZURE_CLI_CREDENTIAL", "").strip().lower() in {"1", "true", "yes"}
         else DefaultAzureCredential()
@@ -47,9 +50,32 @@ async def main() -> None:
         ) as client,
     ):
         tools = None
-        if os.getenv("ENABLE_WORKIQ", "").strip().lower() in {"1", "true", "yes"}:
+        enable_workiq = os.getenv("ENABLE_WORKIQ", "").strip().lower() in {"1", "true", "yes"}
+        allow_workiq_hosted = os.getenv("WORKIQ_ALLOW_HOSTED", "").strip().lower() in {"1", "true", "yes"}
+        if enable_workiq and is_hosted and not allow_workiq_hosted:
+            print(
+                "Work IQ is enabled (ENABLE_WORKIQ=true) but this runtime appears to be hosted (MSI_ENDPOINT is set).\n"
+                "Work IQ uses delegated user auth and typically requires interactive browser/device sign-in, which is\n"
+                "not available in headless hosted agent containers. Disabling Work IQ to avoid confusing permission errors.\n"
+                "To force-enable anyway, set WORKIQ_ALLOW_HOSTED=true (best-effort).",
+                flush=True,
+            )
+            enable_workiq = False
+
+        if enable_workiq:
             workiq_cmd = os.getenv("WORKIQ_COMMAND", "npx").strip() or "npx"
             tenant_id = os.getenv("WORKIQ_TENANT_ID", "").strip()
+
+            if shutil.which(workiq_cmd) is None:
+                print(
+                    f"Work IQ is enabled (ENABLE_WORKIQ=true) but '{workiq_cmd}' was not found on PATH.\n"
+                    "Install Node.js (for npx) or install Work IQ globally and set WORKIQ_COMMAND=workiq.\n"
+                    "Disabling Work IQ for this run.",
+                    flush=True,
+                )
+                enable_workiq = False
+
+        if enable_workiq:
             workiq_args = ["-y", "@microsoft/workiq"]
             if tenant_id:
                 workiq_args += ["-t", tenant_id]

@@ -106,6 +106,12 @@ Important notes:
 - Work IQ is a **Node.js** CLI/MCP server (it runs via `npx @microsoft/workiq mcp`). The provided Dockerfile installs `nodejs` + `npm`.
 - Work IQ uses **delegated user auth** and may require browser-based sign-in and tenant admin consent. This can be straightforward for local development, but it may be difficult or impossible in some hosted/container environments depending on how interactive sign-in is handled.
 
+Hosted-agent note:
+
+- When running as a **hosted agent** (Managed Identity / `MSI_ENDPOINT` is set), this sample **disables Work IQ by default** even if `ENABLE_WORKIQ=true`.
+   - Reason: Work IQ typically needs interactive sign-in to obtain a delegated user token, but hosted agent containers are usually headless.
+   - You can force-enable best-effort behavior by setting `WORKIQ_ALLOW_HOSTED=true`, but expect auth/permission failures if sign-in cannot complete.
+
 Enable Work IQ in this agent:
 
 ```bash
@@ -120,6 +126,39 @@ Optional override if you don’t want to use `npx`:
 export WORKIQ_COMMAND="workiq"
 ```
 
+Local-first setup tips:
+
+- Ensure `npx` is available (Node.js installed). On macOS with Homebrew: `brew install node`
+- On first use, accept the Work IQ EULA:
+
+```bash
+npx -y @microsoft/workiq accept-eula
+```
+
+Quick local validation (one-shot prompt mode):
+
+```bash
+RUN_MODE=prompt \
+ENABLE_WORKIQ=true \
+PROMPT="List latest 3 documents on my OneDrive" \
+python container.py
+```
+
+#### How to “solve” the OneDrive permission issue in hosted mode
+
+There are only two realistic options:
+
+1) **Use Work IQ only in local/interactive runs**
+   - Keep `ENABLE_WORKIQ=true` for local development.
+   - Set `ENABLE_WORKIQ=false` in hosted deployments (or rely on the default guard).
+
+2) **If you need Microsoft 365 access in hosted deployments, build a headless-compatible integration**
+   - Implement your own tool that calls Microsoft Graph using **app auth** (service principal / managed identity) or an **OBO (on-behalf-of)** flow.
+   - App-only auth works well for organization-wide access patterns, but it does not naturally map to “my OneDrive” unless you provide the target user identity.
+   - OBO gives true per-user access, but requires a real user-login flow in a front-end or API you control (the hosted agent runtime alone typically won’t have the user’s delegated token).
+
+In other words: Work IQ is great for local interactive demos, but if you need per-user M365 data access from a headless hosted agent, you generally need a separate auth-enabled web/API component.
+
 ### Container Mode
 
 To run the agent in container mode:
@@ -130,6 +169,46 @@ To run the agent in container mode:
 4. Review the agent's response in the playground interface.
 
 > **Note**: Open the local playground before starting the container agent to ensure the visualization functions correctly.
+
+#### Run locally via Docker (no Foundry deploy)
+
+Running the container locally is useful to reproduce “hosted-like” behavior. Note that **your host Azure login does not automatically flow into the container**.
+
+1) Build:
+
+```bash
+docker build -t foundry-hosted-agent:dev .
+```
+
+2) Run a one-shot prompt (recommended first test):
+
+```bash
+docker run --rm -it \
+   --env-file .env \
+   -e RUN_MODE=prompt \
+   -e PROMPT="Tell me a joke about a pirate." \
+   -e AZURE_TENANT_ID="<tenant-id>" \
+   -e AZURE_CLIENT_ID="<app-client-id>" \
+   -e AZURE_CLIENT_SECRET="<app-client-secret>" \
+   foundry-hosted-agent:dev
+```
+
+3) Run the hosted-agent server locally:
+
+```bash
+docker run --rm -it \
+   --env-file .env \
+   -p 8088:8088 \
+   -e AZURE_TENANT_ID="<tenant-id>" \
+   -e AZURE_CLIENT_ID="<app-client-id>" \
+   -e AZURE_CLIENT_SECRET="<app-client-secret>" \
+   foundry-hosted-agent:dev
+```
+
+Work IQ note for Docker:
+
+- Work IQ may still fail in Docker if it requires launching a browser for sign-in. If the CLI prints a URL/code, open it on your host machine to complete sign-in.
+- If you only want to validate the container without Work IQ, set `ENABLE_WORKIQ=false`.
 
 ### Tool Call Approvals
 
