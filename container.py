@@ -41,7 +41,7 @@ async def main() -> None:
     logger.debug("AZURE_AI_PROJECT_ENDPOINT=%s", (settings.project_endpoint or "").split("?")[0])
     logger.debug("AZURE_AI_MODEL_DEPLOYMENT_NAME=%s", settings.model_deployment_name)
 
-    credential = select_credential(has_msi, settings)
+    credential = select_credential(has_msi=has_msi, use_azure_cli_credential=settings.use_azure_cli_credential)
 
     logger.info("Credential: %s", credential_name(credential))
 
@@ -53,7 +53,7 @@ async def main() -> None:
             model_deployment_name=settings.model_deployment_name,
         ) as client,
     ):
-        tools = build_workiq_tools(has_msi=has_msi, settings=settings)
+        tools = build_workiq_tools(has_msi=has_msi, config=settings.workiq_config())
 
         agent = client.create_agent(
             name=settings.agent_name,

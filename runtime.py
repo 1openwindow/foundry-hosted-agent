@@ -10,7 +10,7 @@ from azure.identity.aio import AzureCliCredential, DefaultAzureCredential, Manag
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
 from logging_utils import setup_logger
-from settings import Settings
+from settings import WorkIQConfig
 
 logger = setup_logger(__name__)
 
@@ -75,18 +75,18 @@ def has_msi_endpoint() -> bool:
     return bool(os.getenv("MSI_ENDPOINT"))
 
 
-def select_credential(has_msi: bool, settings: Settings):
+def select_credential(*, has_msi: bool, use_azure_cli_credential: bool):
     if has_msi:
         return TruthyAsyncCredential(ManagedIdentityCredential())
 
-    if settings.use_azure_cli_credential:
+    if use_azure_cli_credential:
         return TruthyAsyncCredential(AzureCliCredential())
 
     return TruthyAsyncCredential(DefaultAzureCredential())
 
 
-def build_workiq_tools(*, has_msi: bool, settings: Settings):
-    allow_workiq_hosted = settings.workiq_allow_hosted
+def build_workiq_tools(*, has_msi: bool, config: WorkIQConfig):
+    allow_workiq_hosted = config.allow_hosted
 
     logger.info("WorkIQ: enabled=true (always) allow_hosted=%s", allow_workiq_hosted)
 
@@ -111,7 +111,7 @@ def build_workiq_tools(*, has_msi: bool, settings: Settings):
         )
         return None
 
-    tenant_id = (settings.workiq_tenant_id or "").strip()
+    tenant_id = (config.tenant_id or "").strip()
     workiq_args = ["-y", "@microsoft/workiq"]
     if tenant_id:
         workiq_args += ["-t", tenant_id]
@@ -119,9 +119,9 @@ def build_workiq_tools(*, has_msi: bool, settings: Settings):
 
     logger.debug("WorkIQ args=%s", workiq_args)
 
-    capture_stderr = settings.workiq_capture_stderr
-    echo_stderr = settings.workiq_echo_stderr
-    stderr_log_path = settings.workiq_stderr_log_path
+    capture_stderr = config.capture_stderr
+    echo_stderr = config.echo_stderr
+    stderr_log_path = config.stderr_log_path
 
     tool_cls: type[MCPStdioTool]
     tool_kwargs: dict[str, Any] = {}

@@ -78,6 +78,24 @@ class Settings:
     workiq_echo_stderr: bool
     workiq_stderr_log_path: str
 
+    def workiq_config(self) -> "WorkIQConfig":
+        return WorkIQConfig(
+            tenant_id=self.workiq_tenant_id,
+            allow_hosted=self.workiq_allow_hosted,
+            capture_stderr=self.workiq_capture_stderr,
+            echo_stderr=self.workiq_echo_stderr,
+            stderr_log_path=self.workiq_stderr_log_path,
+        )
+
+
+@dataclass(frozen=True)
+class WorkIQConfig:
+    tenant_id: str | None
+    allow_hosted: bool
+    capture_stderr: bool
+    echo_stderr: bool
+    stderr_log_path: str
+
 
 def load_settings() -> Settings:
     # Load local .env into environment for local/dev runs.
