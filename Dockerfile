@@ -6,6 +6,11 @@ COPY ./ user_agent/
 
 WORKDIR /app/user_agent
 
+# Work IQ MCP is a Node.js-based MCP server (runs via npx)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nodejs npm \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN if [ -f requirements.txt ]; then \
         pip install -r requirements.txt; \
     else \

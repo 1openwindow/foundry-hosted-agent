@@ -97,6 +97,29 @@ Credential note:
 export USE_AZURE_CLI_CREDENTIAL=true
 ```
 
+### Work IQ (Microsoft 365) MCP
+
+This sample can optionally add **Microsoft Work IQ** as an MCP tool, so the agent can pull Microsoft 365 Copilot context (emails, meetings, documents, Teams, people, etc.).
+
+Important notes:
+
+- Work IQ is a **Node.js** CLI/MCP server (it runs via `npx @microsoft/workiq mcp`). The provided Dockerfile installs `nodejs` + `npm`.
+- Work IQ uses **delegated user auth** and may require browser-based sign-in and tenant admin consent. This can be straightforward for local development, but it may be difficult or impossible in some hosted/container environments depending on how interactive sign-in is handled.
+
+Enable Work IQ in this agent:
+
+```bash
+export ENABLE_WORKIQ=true
+# Optional: specify tenant (defaults to "common")
+export WORKIQ_TENANT_ID="<your-tenant-id>"
+```
+
+Optional override if you don’t want to use `npx`:
+
+```bash
+export WORKIQ_COMMAND="workiq"
+```
+
 ### Container Mode
 
 To run the agent in container mode:
@@ -167,3 +190,10 @@ To configure the Managed Identity:
 - [Microsoft Agents Framework](https://learn.microsoft.com/agent-framework/overview/agent-framework-overview)
 - [What are hosted agents](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/hosted-agents?view=foundry&tabs=cli)
 - [Managed Identities for Azure Resources](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/)
+
+### References
+
+- Work IQ MCP repo: https://github.com/microsoft/work-iq-mcp
+- Work IQ overview: https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/workiq-overview
+- Agent Framework repo: https://github.com/microsoft/agent-framework
+- Agent Framework overview: https://learn.microsoft.com/en-us/agent-framework/overview/agent-framework-overview

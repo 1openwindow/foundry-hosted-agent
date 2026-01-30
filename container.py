@@ -1,6 +1,7 @@
 import asyncio
 import os
 
+from agent_framework import MCPStdioTool
 from agent_framework.azure import AzureAIAgentClient
 from agent_framework.observability import configure_otel_providers
 from azure.ai.agentserver.agentframework import from_agent_framework
@@ -45,10 +46,31 @@ async def main() -> None:
             model_deployment_name=model_deployment_name,
         ) as client,
     ):
+        tools = None
+        if os.getenv("ENABLE_WORKIQ", "").strip().lower() in {"1", "true", "yes"}:
+            workiq_cmd = os.getenv("WORKIQ_COMMAND", "npx").strip() or "npx"
+            tenant_id = os.getenv("WORKIQ_TENANT_ID", "").strip()
+            workiq_args = ["-y", "@microsoft/workiq"]
+            if tenant_id:
+                workiq_args += ["-t", tenant_id]
+            workiq_args += ["mcp"]
+
+            tools = [
+                MCPStdioTool(
+                    name="workiq",
+                    command=workiq_cmd,
+                    args=workiq_args,
+                    description="Microsoft Work IQ MCP server (Microsoft 365 Copilot data)",
+                )
+            ]
+
         agent = client.create_agent(
             name=os.getenv("AGENT_NAME", "HostedAgent"),
             instructions=os.getenv("AGENT_INSTRUCTIONS", "You are good at telling jokes."),
+            tools=tools,
         )
+
+        print(f"Agent name: {getattr(agent, 'name', '<unknown>')}")
 
         # Default: run as hosted agent server for Docker/Foundry.
         if os.getenv("RUN_MODE", "server").strip().lower() == "prompt":
