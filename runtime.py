@@ -9,10 +9,13 @@ from agent_framework import MCPStdioTool
 from azure.identity.aio import AzureCliCredential, DefaultAzureCredential, ManagedIdentityCredential
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
+from logging_utils import setup_logger
 from settings import Settings
 
+logger = setup_logger(__name__)
 
-def disable_agentserver_tracing(logger: logging.Logger) -> None:
+
+def disable_agentserver_tracing() -> None:
     """Disable agentserver tracing init.
 
     The agentserver Agent Framework adapter may schedule an async tracing setup task that
@@ -68,16 +71,6 @@ def credential_name(credential: Any) -> str:
     return (inner or credential).__class__.__name__
 
 
-def configure_logging(settings: Settings) -> logging.Logger:
-    level_name = (settings.log_level or "").strip().upper()
-    level = getattr(logging, level_name, None)
-    if level is None:
-        level = logging.DEBUG if (settings.debug or settings.af_debug) else logging.INFO
-
-    logging.basicConfig(level=level, format="[%(levelname)s] %(message)s")
-    return logging.getLogger("foundry-hosted-agent")
-
-
 def has_msi_endpoint() -> bool:
     return bool(os.getenv("MSI_ENDPOINT"))
 
@@ -92,7 +85,7 @@ def select_credential(has_msi: bool, settings: Settings):
     return TruthyAsyncCredential(DefaultAzureCredential())
 
 
-def build_workiq_tools(*, logger: logging.Logger, has_msi: bool, settings: Settings):
+def build_workiq_tools(*, has_msi: bool, settings: Settings):
     allow_workiq_hosted = settings.workiq_allow_hosted
 
     logger.info("WorkIQ: enabled=true (always) allow_hosted=%s", allow_workiq_hosted)

@@ -5,9 +5,9 @@ from agent_framework.azure import AzureAIAgentClient
 from agent_framework.observability import configure_otel_providers
 from azure.ai.agentserver.agentframework import from_agent_framework
 
+from logging_utils import configure_logging, setup_logger
 from runtime import (
     build_workiq_tools,
-    configure_logging,
     credential_name,
     disable_agentserver_tracing,
     has_msi_endpoint,
@@ -22,7 +22,8 @@ async def main() -> None:
     except ConfigError as exc:
         raise SystemExit(str(exc))
 
-    logger = configure_logging(settings)
+    configure_logging(settings)
+    logger = setup_logger(__name__)
 
     # Docker/Foundry: bind to provided PORT (agent host uses ASP.NET Core under the hood)
     os.environ.setdefault("ASPNETCORE_URLS", f"http://+:{settings.port}")
@@ -52,7 +53,7 @@ async def main() -> None:
             model_deployment_name=settings.model_deployment_name,
         ) as client,
     ):
-        tools = build_workiq_tools(logger=logger, has_msi=has_msi, settings=settings)
+        tools = build_workiq_tools(has_msi=has_msi, settings=settings)
 
         agent = client.create_agent(
             name=settings.agent_name,
@@ -64,7 +65,7 @@ async def main() -> None:
 
         # Always run as hosted agent server for Docker/Foundry.
         if not has_msi and not settings.enable_server_tracing:
-            disable_agentserver_tracing(logger)
+            disable_agentserver_tracing()
         logger.debug("Server mode enabled")
         await from_agent_framework(agent, credentials=credential).run_async()
 
