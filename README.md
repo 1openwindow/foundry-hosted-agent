@@ -1,12 +1,12 @@
 # Hosted Agent (Container) Sample
 
-This repo is a minimal, container-friendly Agent Framework sample that creates an Azure AI Foundry agent and equips it with a hosted MCP tool (Microsoft Learn MCP). It is designed to run locally and to be deployed as a hosted agent.
+This repo is a minimal, container-friendly Agent Framework sample that creates an Azure AI Foundry agent and runs it as a hosted agent (container). It is designed to run locally and to be deployed as a hosted agent.
 
 ## Project Structure
 
 | File               | Description                                                         |
 | ------------------ | ------------------------------------------------------------------- |
-| `container.py`     | Entry point that creates the agent and runs sample queries.         |
+| `container.py`     | Entry point that creates the agent and starts the hosted-agent server (default), or runs a single prompt (optional). |
 | `requirements.txt` | Lists the Python dependencies for the project.                      |
 | `Dockerfile`       | Defines the container image for deployment.                         |
 | `.dockerignore`    | Specifies files to ignore during container build.                   |
@@ -80,7 +80,22 @@ Run the sample:
 python container.py
 ```
 
-This script runs a small list of example queries against the agent and prints the responses.
+By default this starts the hosted-agent server (the same mode used in Docker/Foundry).
+
+If you want a simple one-shot run (similar to a “hello world” sample), run:
+
+```bash
+RUN_MODE=prompt PROMPT="Tell me a joke about a pirate." python container.py
+```
+
+Credential note:
+
+- By default, local runs use `DefaultAzureCredential`.
+- If you want to explicitly use your Azure CLI login (`az login`), set:
+
+```bash
+export USE_AZURE_CLI_CREDENTIAL=true
+```
 
 ### Container Mode
 
@@ -95,11 +110,7 @@ To run the agent in container mode:
 
 ### Tool Call Approvals
 
-Hosted MCP tool calls may request approval. For non-interactive runs (for example in CI or when stdin is not a TTY), set:
-
-```bash
-export MCP_AUTO_APPROVE=true
-```
+This sample does not enable any tools that require interactive approvals by default. If you add tools that require approvals, ensure your runtime configuration supports non-interactive operation when running as a hosted agent.
 
 ## Deployment
 
