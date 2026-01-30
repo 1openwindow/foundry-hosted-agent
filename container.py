@@ -6,9 +6,35 @@ from agent_framework.observability import configure_otel_providers
 from azure.ai.agentserver.agentframework import from_agent_framework
 from dotenv import load_dotenv
 
-from runtime import build_workiq_tools, configure_logging, detect_hosted, select_credential
+from runtime import build_workiq_tools, configure_logging, credential_name, has_msi_endpoint, select_credential
 
 load_dotenv(override=True)
+
+
+def _env_truthy(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _disable_agentserver_tracing(logger) -> None:
+    """Disable agentserver tracing init.
+
+    The agentserver Agent Framework adapter may schedule an async tracing setup task that
+    can fail noisily in local dev environments. This disables that init path.
+    """
+
+    try:
+        from opentelemetry import trace
+        from azure.ai.agentserver.agentframework.agent_framework import AgentFrameworkCBAgent
+
+        def _noop_init_tracing(self):
+            self.tracer = trace.get_tracer(__name__)
+
+        AgentFrameworkCBAgent.init_tracing = _noop_init_tracing  # type: ignore[method-assign]
+        logger.info("Tracing disabled (ENABLE_SERVER_TRACING not set).")
+    except Exception as exc:
+        logger.warning("Failed to disable tracing: %s", exc)
+
+
 async def main() -> None:
     logger = configure_logging()
 
@@ -16,12 +42,12 @@ async def main() -> None:
     port = os.getenv("PORT", "8088").strip() or "8088"
     os.environ.setdefault("ASPNETCORE_URLS", f"http://+:{port}")
 
-    is_hosted = detect_hosted()
+    has_msi = has_msi_endpoint()
     run_mode = os.getenv("RUN_MODE", "server").strip().lower()
-    logger.debug("Runtime: RUN_MODE=%s is_hosted=%s", run_mode, is_hosted)
+    logger.info("Runtime: RUN_MODE=%s has_msi_endpoint=%s", run_mode, has_msi)
 
     # Local-only observability (optional)
-    if not is_hosted:
+    if not has_msi and _env_truthy("ENABLE_OTEL"):
         try:
             configure_otel_providers(vs_code_extension_port=4319, enable_sensitive_data=False)
         except Exception:
@@ -37,9 +63,9 @@ async def main() -> None:
     logger.debug("AZURE_AI_PROJECT_ENDPOINT=%s", (project_endpoint or "").split("?")[0])
     logger.debug("AZURE_AI_MODEL_DEPLOYMENT_NAME=%s", model_deployment_name)
 
-    credential = select_credential(is_hosted)
+    credential = select_credential(has_msi)
 
-    logger.debug("Credential: %s", credential.__class__.__name__)
+    logger.info("Credential: %s", credential_name(credential))
 
     async with (
         credential,
@@ -49,7 +75,7 @@ async def main() -> None:
             model_deployment_name=model_deployment_name,
         ) as client,
     ):
-        tools = build_workiq_tools(logger=logger, is_hosted=is_hosted)
+        tools = build_workiq_tools(logger=logger, has_msi=has_msi)
 
         agent = client.create_agent(
             name=os.getenv("AGENT_NAME", "HostedAgent"),
@@ -66,6 +92,8 @@ async def main() -> None:
             result = await agent.run(prompt)
             print(getattr(result, "text", result))
         else:
+            if not has_msi and not _env_truthy("ENABLE_SERVER_TRACING"):
+                _disable_agentserver_tracing(logger)
             logger.debug("Server mode enabled")
             await from_agent_framework(agent, credentials=credential).run_async()
 
